@@ -1,19 +1,19 @@
-const fs = require("fs");
+ const fs = require("fs");
 
 // Read toy language code
 const input = fs.readFileSync("examples/input.txt", "utf-8");
 
-// Split code into individual lines
+// Split code into lines
 const lines = input.split("\n");
 
-// This will collect generated JavaScript code
+// Collect generated JavaScript
 let output = "";
 
-// Process each line one by one
+// Process each line
 for (let line of lines) {
   line = line.trim();
 
-  // 1. Variable declaration: let x = 5
+  // 1. Variable declaration
   if (line.startsWith("let")) {
     const statement = line.replace("let", "").trim();
     const parts = statement.split("=");
@@ -24,7 +24,7 @@ for (let line of lines) {
     output += `let ${name} = ${value};\n`;
   }
 
-  // 2. Conditional start: if x > 5 {
+  // 2. IF condition
   else if (line.startsWith("if")) {
     const condition = line
       .replace("if", "")
@@ -34,18 +34,28 @@ for (let line of lines) {
     output += `if (${condition}) {\n`;
   }
 
-  // 3. Block end: }
+  // 3. WHILE loop
+  else if (line.startsWith("while")) {
+    const condition = line
+      .replace("while", "")
+      .replace("{", "")
+      .trim();
+
+    output += `while (${condition}) {\n`;
+  }
+
+  // 4. Block end
   else if (line === "}") {
     output += "}\n";
   }
 
-  // 4. Print statement: print x
+  // 5. Print statement
   else if (line.startsWith("print")) {
     const value = line.replace("print", "").trim();
     output += `console.log(${value});\n`;
   }
 
-  // 5. Variable update / expression: x = x + 1
+  // 6. Variable update / expression
   else if (line.includes("=")) {
     const parts = line.split("=");
 
@@ -56,6 +66,6 @@ for (let line of lines) {
   }
 }
 
-// Show the generated JavaScript
+// Show generated JavaScript
 console.log("Generated JavaScript Code:\n");
 console.log(output);

@@ -47,29 +47,25 @@ for (let line of lines) {
 
     // Store in memory
     variables[variableName] = variableValue;
+    output+=`let ${variableName}=${variableValue};\n`;
   }
 
-  /*
-  HANDLE PRINT STATEMENT
-  Example: print x
-  */
+  // Variable update (expression)
+  else if (line.includes("=") && !line.startsWith("print")) {
+    const parts = line.split("=");
+
+    const left = parts[0].trim();
+    const right = parts[1].trim();
+
+    output += `${left} = ${right};\n`;
+  }
+
+  // Print
   else if (line.startsWith("print")) {
-
     const value = line.replace("print", "").trim();
-
-    // If value exists in memory, print variable
-    if (variables[value] !== undefined) {
-      output += `console.log(${variables[value]});\n`;
-    } 
-    // Otherwise print directly (string or number)
-    else {
-      output += `console.log(${value});\n`;
-    }
+    output += `console.log(${value});\n`;
   }
 }
 
-/*
-6. Show the generated JavaScript code
-*/
 console.log("Generated JavaScript Code:\n");
 console.log(output);

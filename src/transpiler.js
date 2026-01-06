@@ -33,7 +33,18 @@ for (let line of lines) {
 
     output += `if (${condition}) {\n`;
   }
+  //ELSE IF CONDITION
+  else if (line.startsWith("}else if")){
+    const condition = line.replace("}else if","").replace("{","").trim();
 
+    output+= `} else if (${condition}){\n`;
+  }
+
+  //ELSE BLOCK
+  else if(line.startsWith("}else")){
+    const condition = line.replace("}else","").replace("{","").trim();
+    output+=`}else{\n`;
+  }
   // 3. WHILE loop
   else if (line.startsWith("while")) {
     const condition = line

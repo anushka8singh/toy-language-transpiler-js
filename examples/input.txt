@@ -1,1 +1,4 @@
-print y
+repeat 3 {
+  print "hello"
+}
+

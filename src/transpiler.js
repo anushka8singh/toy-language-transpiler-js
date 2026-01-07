@@ -5,7 +5,7 @@ const declaredVariables = new Set();
 let openBlocks = 0;
 let output = "";
 
-// ---------- HELPERS ----------
+// ---------- ERROR HELPERS ----------
 function syntaxError(line, message) {
   throw new Error(`Syntax error on line ${line}: ${message}`);
 }
@@ -46,7 +46,7 @@ function handleElseIf(line, lineNumber) {
   return `} else if (${condition}) {\n`;
 }
 
-function handleElse(line) {
+function handleElse() {
   return `} else {\n`;
 }
 
@@ -58,6 +58,25 @@ function handleWhile(line, lineNumber) {
   openBlocks++;
   const condition = line.replace("while", "").replace("{", "").trim();
   return `while (${condition}) {\n`;
+}
+
+// 🔥 NEW FEATURE: repeat loop
+function handleRepeat(line, lineNumber) {
+  if (!line.endsWith("{")) {
+    syntaxError(lineNumber, "Missing '{' in repeat loop");
+  }
+
+  const count = line
+    .replace("repeat", "")
+    .replace("{", "")
+    .trim();
+
+  if (isNaN(count)) {
+    syntaxError(lineNumber, "Repeat count must be a number");
+  }
+
+  openBlocks++;
+  return `for (let i = 0; i < ${count}; i++) {\n`;
 }
 
 function handleBlockEnd(lineNumber) {
@@ -100,7 +119,7 @@ lines.forEach((rawLine, index) => {
 
   if (line.startsWith("let")) {
     output += handleDeclaration(line, lineNumber);
-  } 
+  }
   else if (line.startsWith("if")) {
     output += handleIf(line, lineNumber);
   }
@@ -108,10 +127,13 @@ lines.forEach((rawLine, index) => {
     output += handleElseIf(line, lineNumber);
   }
   else if (line.startsWith("} else")) {
-    output += handleElse(line);
+    output += handleElse();
   }
   else if (line.startsWith("while")) {
     output += handleWhile(line, lineNumber);
+  }
+  else if (line.startsWith("repeat")) {
+    output += handleRepeat(line, lineNumber);
   }
   else if (line === "}") {
     output += handleBlockEnd(lineNumber);

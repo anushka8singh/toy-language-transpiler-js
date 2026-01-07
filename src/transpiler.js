@@ -1,143 +1,137 @@
- const fs = require("fs");
+const fs = require("fs");
 
-// Read toy language code
-const input = fs.readFileSync("examples/input.txt", "utf-8");
-
-// Split into lines
-const lines = input.split("\n");
-
-// Output JavaScript
+// ---------- STATE ----------
+const declaredVariables = new Set();
+let openBlocks = 0;
 let output = "";
 
-// Track declared variables
-const declaredVariables = new Set();
+// ---------- HELPERS ----------
+function syntaxError(line, message) {
+  throw new Error(`Syntax error on line ${line}: ${message}`);
+}
 
-// Track open blocks
-let openBlocks = 0;
+function semanticError(line, message) {
+  throw new Error(`Semantic error on line ${line}: ${message}`);
+}
 
-// Process each line with line numbers
+// ---------- HANDLERS ----------
+function handleDeclaration(line, lineNumber) {
+  if (!line.includes("=")) {
+    syntaxError(lineNumber, "Missing '=' in variable declaration");
+  }
+
+  const statement = line.replace("let", "").trim();
+  const [name, value] = statement.split("=").map(s => s.trim());
+
+  declaredVariables.add(name);
+  return `let ${name} = ${value};\n`;
+}
+
+function handleIf(line, lineNumber) {
+  if (!line.endsWith("{")) {
+    syntaxError(lineNumber, "Missing '{' in if statement");
+  }
+
+  openBlocks++;
+  const condition = line.replace("if", "").replace("{", "").trim();
+  return `if (${condition}) {\n`;
+}
+
+function handleElseIf(line, lineNumber) {
+  if (!line.endsWith("{")) {
+    syntaxError(lineNumber, "Missing '{' in else if statement");
+  }
+
+  const condition = line.replace("} else if", "").replace("{", "").trim();
+  return `} else if (${condition}) {\n`;
+}
+
+function handleElse(line) {
+  return `} else {\n`;
+}
+
+function handleWhile(line, lineNumber) {
+  if (!line.endsWith("{")) {
+    syntaxError(lineNumber, "Missing '{' in while loop");
+  }
+
+  openBlocks++;
+  const condition = line.replace("while", "").replace("{", "").trim();
+  return `while (${condition}) {\n`;
+}
+
+function handleBlockEnd(lineNumber) {
+  openBlocks--;
+  if (openBlocks < 0) {
+    syntaxError(lineNumber, "Unexpected '}'");
+  }
+  return "}\n";
+}
+
+function handlePrint(line, lineNumber) {
+  const value = line.replace("print", "").trim();
+
+  if (!value.startsWith('"') && !declaredVariables.has(value)) {
+    semanticError(lineNumber, `Undefined variable '${value}'`);
+  }
+
+  return `console.log(${value});\n`;
+}
+
+function handleExpression(line, lineNumber) {
+  const [left, right] = line.split("=").map(s => s.trim());
+
+  if (!declaredVariables.has(left)) {
+    semanticError(lineNumber, `Variable '${left}' not declared`);
+  }
+
+  return `${left} = ${right};\n`;
+}
+
+// ---------- MAIN ----------
+const input = fs.readFileSync("examples/input.txt", "utf-8");
+const lines = input.split("\n");
+
 lines.forEach((rawLine, index) => {
   const lineNumber = index + 1;
   const line = rawLine.trim();
 
-  // Skip empty lines
   if (line === "") return;
 
-  // Variable declaration
   if (line.startsWith("let")) {
-    if (!line.includes("=")) {
-      throw new Error(`Syntax error on line ${lineNumber}: Missing '=' in variable declaration`);
-    }
-
-    const statement = line.replace("let", "").trim();
-    const parts = statement.split("=");
-
-    const name = parts[0].trim();
-    const value = parts[1].trim();
-
-    declaredVariables.add(name);
-    output += `let ${name} = ${value};\n`;
-  }
-
-  // IF condition
+    output += handleDeclaration(line, lineNumber);
+  } 
   else if (line.startsWith("if")) {
-    if (!line.endsWith("{")) {
-      throw new Error(`Syntax error on line ${lineNumber}: Missing '{' in if statement`);
-    }
-
-    const condition = line
-      .replace("if", "")
-      .replace("{", "")
-      .trim();
-
-    openBlocks++;
-    output += `if (${condition}) {\n`;
+    output += handleIf(line, lineNumber);
   }
-
-  // ELSE IF condition
   else if (line.startsWith("} else if")) {
-    if (!line.endsWith("{")) {
-      throw new Error(`Syntax error on line ${lineNumber}: Missing '{' in else if statement`);
-    }
-
-    const condition = line
-      .replace("} else if", "")
-      .replace("{", "")
-      .trim();
-
-    output += `} else if (${condition}) {\n`;
+    output += handleElseIf(line, lineNumber);
   }
-
-  // ELSE block
   else if (line.startsWith("} else")) {
-    if (!line.endsWith("{")) {
-      throw new Error(`Syntax error on line ${lineNumber}: Missing '{' in else statement`);
-    }
-
-    output += `} else {\n`;
+    output += handleElse(line);
   }
-
-  // WHILE loop
   else if (line.startsWith("while")) {
-    if (!line.endsWith("{")) {
-      throw new Error(`Syntax error on line ${lineNumber}: Missing '{' in while loop`);
-    }
-
-    const condition = line
-      .replace("while", "")
-      .replace("{", "")
-      .trim();
-
-    openBlocks++;
-    output += `while (${condition}) {\n`;
+    output += handleWhile(line, lineNumber);
   }
-
-  // Block end
   else if (line === "}") {
-    openBlocks--;
-    if (openBlocks < 0) {
-      throw new Error(`Syntax error on line ${lineNumber}: Unexpected '}'`);
-    }
-    output += "}\n";
+    output += handleBlockEnd(lineNumber);
   }
-
-  // Print statement
   else if (line.startsWith("print")) {
-    const value = line.replace("print", "").trim();
-
-    // Check variable usage
-    if (!value.startsWith('"') && !declaredVariables.has(value)) {
-      throw new Error(`Semantic error on line ${lineNumber}: Undefined variable '${value}'`);
-    }
-
-    output += `console.log(${value});\n`;
+    output += handlePrint(line, lineNumber);
   }
-
-  // Variable update / expression
   else if (line.includes("=")) {
-    const parts = line.split("=");
-
-    const left = parts[0].trim();
-    const right = parts[1].trim();
-
-    if (!declaredVariables.has(left)) {
-      throw new Error(`Semantic error on line ${lineNumber}: Variable '${left}' not declared`);
-    }
-
-    output += `${left} = ${right};\n`;
+    output += handleExpression(line, lineNumber);
   }
-
-  // Unknown statement
   else {
-    throw new Error(`Syntax error on line ${lineNumber}: Unknown statement`);
+    syntaxError(lineNumber, "Unknown statement");
   }
 });
 
-// Check for unclosed blocks
+// Final validation
 if (openBlocks !== 0) {
-  throw new Error("Syntax error: Unclosed block '{'");
+  throw new Error("Syntax error: Unclosed '{'");
 }
 
-// Show generated JavaScript
 console.log("Generated JavaScript Code:\n");
 console.log(output);
+

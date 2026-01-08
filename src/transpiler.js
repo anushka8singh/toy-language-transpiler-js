@@ -2,7 +2,7 @@ const fs = require("fs");
 
 // ---------- STATE ----------
 const declaredVariables = new Set();
-const declaredFunctions = new Set();
+const declaredFunctions = new Map(); // name -> parameters
 let openBlocks = 0;
 let output = "";
 
@@ -28,25 +28,23 @@ function handleDeclaration(line, lineNumber) {
   return `let ${name} = ${value};\n`;
 }
 
-// 🔥 FUNCTION DEFINITION
+// 🔥 FUNCTION DEFINITION WITH PARAMETERS
 function handleFunctionDefinition(line, lineNumber) {
   if (!line.endsWith("{")) {
     syntaxError(lineNumber, "Missing '{' in function definition");
   }
 
-  const name = line
-    .replace("func", "")
-    .replace("{", "")
-    .trim();
+  const header = line.replace("func", "").replace("{", "").trim();
+  const parts = header.split(/\s+/);
 
-  if (!name) {
-    syntaxError(lineNumber, "Function name missing");
-  }
+  const name = parts[0];
+  const params = parts.slice(1);
 
-  declaredFunctions.add(name);
+  declaredFunctions.set(name, params);
+  params.forEach(p => declaredVariables.add(p));
+
   openBlocks++;
-
-  return `function ${name}() {\n`;
+  return `function ${name}(${params.join(", ")}) {\n`;
 }
 
 function handleIf(line, lineNumber) {
@@ -88,7 +86,6 @@ function handleRepeat(line, lineNumber) {
   }
 
   const count = line.replace("repeat", "").replace("{", "").trim();
-
   if (isNaN(count)) {
     syntaxError(lineNumber, "Repeat count must be a number");
   }
@@ -107,35 +104,37 @@ function handleBlockEnd(lineNumber) {
 
 function handlePrint(line, lineNumber) {
   const value = line.replace("print", "").trim();
-
-  if (
-    !value.startsWith('"') &&
-    !declaredVariables.has(value) &&
-    !declaredFunctions.has(value)
-  ) {
-    semanticError(lineNumber, `Undefined identifier '${value}'`);
-  }
-
   return `console.log(${value});\n`;
 }
 
 function handleExpression(line, lineNumber) {
   const [left, right] = line.split("=").map(s => s.trim());
-
   if (!declaredVariables.has(left)) {
     semanticError(lineNumber, `Variable '${left}' not declared`);
   }
-
   return `${left} = ${right};\n`;
 }
 
-// 🔥 FUNCTION CALL
+// 🔥 FUNCTION CALL WITH ARGUMENTS
 function handleFunctionCall(line, lineNumber) {
-  if (!declaredFunctions.has(line)) {
-    semanticError(lineNumber, `Function '${line}' not defined`);
+  const parts = line.split(/\s+/);
+  const name = parts[0];
+  const args = parts.slice(1);
+
+  if (!declaredFunctions.has(name)) {
+    semanticError(lineNumber, `Function '${name}' not defined`);
   }
 
-  return `${line}();\n`;
+  const expectedParams = declaredFunctions.get(name);
+
+  if (args.length !== expectedParams.length) {
+    semanticError(
+      lineNumber,
+      `Function '${name}' expects ${expectedParams.length} arguments but got ${args.length}`
+    );
+  }
+
+  return `${name}(${args.join(", ")});\n`;
 }
 
 // ---------- MAIN ----------
@@ -179,7 +178,6 @@ lines.forEach((rawLine, index) => {
     output += handleExpression(line, lineNumber);
   }
   else {
-    // If nothing matched, try function call
     output += handleFunctionCall(line, lineNumber);
   }
 });
@@ -191,5 +189,3 @@ if (openBlocks !== 0) {
 
 console.log("Generated JavaScript Code:\n");
 console.log(output);
-
-

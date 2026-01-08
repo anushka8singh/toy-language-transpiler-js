@@ -2,6 +2,7 @@ const fs = require("fs");
 
 // ---------- STATE ----------
 const declaredVariables = new Set();
+const declaredFunctions = new Set();
 let openBlocks = 0;
 let output = "";
 
@@ -25,6 +26,27 @@ function handleDeclaration(line, lineNumber) {
 
   declaredVariables.add(name);
   return `let ${name} = ${value};\n`;
+}
+
+// 🔥 FUNCTION DEFINITION
+function handleFunctionDefinition(line, lineNumber) {
+  if (!line.endsWith("{")) {
+    syntaxError(lineNumber, "Missing '{' in function definition");
+  }
+
+  const name = line
+    .replace("func", "")
+    .replace("{", "")
+    .trim();
+
+  if (!name) {
+    syntaxError(lineNumber, "Function name missing");
+  }
+
+  declaredFunctions.add(name);
+  openBlocks++;
+
+  return `function ${name}() {\n`;
 }
 
 function handleIf(line, lineNumber) {
@@ -60,16 +82,12 @@ function handleWhile(line, lineNumber) {
   return `while (${condition}) {\n`;
 }
 
-// 🔥 NEW FEATURE: repeat loop
 function handleRepeat(line, lineNumber) {
   if (!line.endsWith("{")) {
     syntaxError(lineNumber, "Missing '{' in repeat loop");
   }
 
-  const count = line
-    .replace("repeat", "")
-    .replace("{", "")
-    .trim();
+  const count = line.replace("repeat", "").replace("{", "").trim();
 
   if (isNaN(count)) {
     syntaxError(lineNumber, "Repeat count must be a number");
@@ -90,8 +108,12 @@ function handleBlockEnd(lineNumber) {
 function handlePrint(line, lineNumber) {
   const value = line.replace("print", "").trim();
 
-  if (!value.startsWith('"') && !declaredVariables.has(value)) {
-    semanticError(lineNumber, `Undefined variable '${value}'`);
+  if (
+    !value.startsWith('"') &&
+    !declaredVariables.has(value) &&
+    !declaredFunctions.has(value)
+  ) {
+    semanticError(lineNumber, `Undefined identifier '${value}'`);
   }
 
   return `console.log(${value});\n`;
@@ -107,6 +129,15 @@ function handleExpression(line, lineNumber) {
   return `${left} = ${right};\n`;
 }
 
+// 🔥 FUNCTION CALL
+function handleFunctionCall(line, lineNumber) {
+  if (!declaredFunctions.has(line)) {
+    semanticError(lineNumber, `Function '${line}' not defined`);
+  }
+
+  return `${line}();\n`;
+}
+
 // ---------- MAIN ----------
 const input = fs.readFileSync("examples/input.txt", "utf-8");
 const lines = input.split("\n");
@@ -119,6 +150,9 @@ lines.forEach((rawLine, index) => {
 
   if (line.startsWith("let")) {
     output += handleDeclaration(line, lineNumber);
+  }
+  else if (line.startsWith("func")) {
+    output += handleFunctionDefinition(line, lineNumber);
   }
   else if (line.startsWith("if")) {
     output += handleIf(line, lineNumber);
@@ -145,7 +179,8 @@ lines.forEach((rawLine, index) => {
     output += handleExpression(line, lineNumber);
   }
   else {
-    syntaxError(lineNumber, "Unknown statement");
+    // If nothing matched, try function call
+    output += handleFunctionCall(line, lineNumber);
   }
 });
 
@@ -156,4 +191,5 @@ if (openBlocks !== 0) {
 
 console.log("Generated JavaScript Code:\n");
 console.log(output);
+
 

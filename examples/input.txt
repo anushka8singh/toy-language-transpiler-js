@@ -1,4 +1,5 @@
-repeat 3 {
-  print "hello"
+func greet{
+  print "Hello"
 }
-
+greet
+greet
